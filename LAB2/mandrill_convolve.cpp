@@ -25,7 +25,11 @@ int main() {
 
   Mat kernel_lowpass = Mat::ones(3, 3, CV_32F);
   Mat kernel_highpass(3, 3, CV_32F, -1);
-  kernel_highpass.at<float>(1,1) = 9;
+  kernel_highpass.at<float>(0,0) = 0;
+  kernel_highpass.at<float>(2,2) = 0;
+  kernel_highpass.at<float>(2,0) = 0;
+  kernel_highpass.at<float>(0,2) = 0;
+  kernel_highpass.at<float>(1,1) = 5;
   
   kernel_highpass = kernel_highpass/(cv::sum( kernel_highpass )[0]);
 
@@ -38,7 +42,7 @@ int main() {
          pixel += image.at<uchar>(y-i,x-j) * kernel_highpass.at<float>(i+1,j+1);
        }
      }
-     image_new.at<uchar>(y-1,x-1) = pixel;
+     image_new.at<uchar>(y-1,x-1) = pixel % 255;
 } }
 
 // // Threshold by looping through all pixels
