@@ -14,8 +14,8 @@ void normalise(Mat &input, string num);
 void threshold(Mat &input, int t, Mat &output);
 void gaussian(Mat &input, int size, Mat &output);
 void filter_non_max(Mat &input_mag, Mat &input_dir);
-void hough_transform(Mat &input, int r_min, int r_max, double threshold, Mat &direction);
-void h_tran(Mat &input, int r_min, int r_max, double threshold, Mat &direction);
+vector<vector<int> > h_transform(Mat &input, int r_min, int r_max, double threshold, Mat &direction);
+void draw_circles(Mat &input, vector<vector<int> > circles);
 
 int ***malloc3dArray(int dim1, int dim2, int dim3) {
     int i, j, k;
@@ -48,9 +48,7 @@ int main( int argc, char** argv ) {
 
 	Mat img_blur;
 	// set number for gaussian kernel size, different kernel size works better with different pic
-	gaussian(img_gray, 7, img_blur); // coins 1
-	// gaussian(img_gray, 7, img_blur); // coins 2
-	// gaussian(img_gray, 7, img_blur); // coins 3
+	gaussian(img_gray, 7, img_blur);
 
 	Mat img_x(image.size(), CV_32FC1);
 	Mat img_y(image.size(), CV_32FC1);
@@ -79,21 +77,14 @@ int main( int argc, char** argv ) {
 	Mat img_threshold = imread("coin_mag.jpg", 1);
     Mat gray_test;
     cvtColor( img_threshold, gray_test, CV_BGR2GRAY );
+
 	// set threshold (between 0 and 255) for the normalised magnitude image
-	threshold(gray_test, 50, img_threshold); // coins 1
-	// threshold(img_magnitude, 80, img_threshold); // coins 2
-	// threshold(img_magnitude, 100, img_threshold); // coins 3
+	threshold(gray_test, 50, img_threshold);
 
-	// canny test image from python version
-	// Mat canny = imread("canny.png", CV_LOAD_IMAGE_UNCHANGED);
-	// cvtColor( canny, canny, CV_BGR2GRAY );
-
-	// Mat img_hough_transform;
-	// return number of coins found, 1: min radius, 2: max radius, 3: hough threshold, 4: steps?
-	// h_tran(img_threshold, 35, 50, 30, img_direction); // 35 - 45, 0.4:100steps / 0.5:25steps
-	h_tran(img_threshold, 40, 100, 30, img_direction); // 35 - 45, 0.4:100steps / 0.5:25steps
-	// hough_transform(img_threshold, 40, 100, 0.5, img_direction); // 40 - 90 0.4:50steps(doesnt fit circle size perfect) / 40-100 0.6:25steps (all but top right)
-	// hough_transform(img_threshold, 20, 60, 0.5, img_direction);
+	vector<vector<int> > circles = h_tran(img_threshold, 35, 50, 30, img_direction);
+	// vector<vector<int> > circles = h_tran(img_threshold, 35, 80, 31, img_direction);
+	// vector<vector<int> > circles = h_tran(img_threshold, 25, 65, 16, img_direction); // solid amount of circles detected, some wrong size 
+	draw_circles(image, circles);
 
  	return 0;
 }
@@ -245,114 +236,7 @@ void threshold(Mat &input, int t, Mat &output) {
 	imwrite("coin_threshold.jpg", output);
 }
 
-void hough_transform(Mat &input, int r_min, int r_max, double threshold, Mat &direction) {
-
-	Mat output;
-	output.create(input.size(), CV_8UC1);
-	int steps = 30;
-
-	vector<vector<int> > points;
-	for(int i = r_min; i < r_max+1; i++) {
-		for(int j = 0; j < steps; j++) {
-			vector<int> temp;
-			temp.push_back(i);
-			temp.push_back(int(i * cos(2 * pi * j / steps)));
-			temp.push_back(int(i * sin(2 * pi * j / steps)));
-			points.push_back(temp);
-		}
-	}
-
-	vector<pair<int, int> > pixels;
-	for(int x = 0; x < input.rows; x++) {
-		for( int y = 0; y < input.cols; y++) {
-			int val = (int) input.at<uchar>(x,y);
-			if(val > 75) {
-				pixels.push_back(make_pair(x,y));
-			}
-		}
-	}
-
-	int percent_latest = 0;
-	map<vector<int>, int> acc;
-	for(int i = 0; i < pixels.size(); i++) {
-		double percent = (double) i/pixels.size();
-		percent *= 100;
-		if((int) percent != percent_latest) {
-			percent_latest = (int) percent;
-			cout << "creating map: " << (int) percent << '%' << endl;
-		}
-		pair<int, int> pix = pixels[i];
-		int x = pix.first;
-		int y = pix.second;
-		for(int j = 0; j < points.size(); j++) {
-		// for(int r = r_min; r < r_max; r++) {
-			vector<int> temp;
-			vector<int> p = points[j];
-			// int xc = int(r * cos(direction.at<float>(x,y)));
-			// int yc = int(r * sin(direction.at<float>(x,y)));
-			// int a = x - xc;
-			// int b = y - yc;
-			int a = x - p[1];
-			int b = y - p[2];
-			temp.push_back(a);
-			temp.push_back(b);
-			temp.push_back(p[0]);
-			acc[temp] += 1;
-			// output.at<uchar>(x,y) += 1;
-		}
-	}
-	cout << "map size: " << acc.size() << endl;
-
-	vector<vector<int> > circles;
-	for(map<vector<int>, int>::const_iterator it = acc.begin(); it != acc.end(); ++it) {
-		bool test_pass = true;
-		vector<int> key = it->first;
-
-		int x = key[0];
-		int y = key[1];
-		int r = key[2];
-		for(int i = 0; i < circles.size(); i++) {
-			vector<int> circle = circles[i];
-			int xc = circle[0];
-			int yc = circle[1];
-			int rc = circle[2];
-
-			if(!(pow((x-xc),2) + pow((y-yc),2) > pow(rc,2))) {
-				test_pass = false;
-			}
-		}
-		double t_thresh = (double) it->second/steps;
-		// cout << t_thresh << endl;
-		if(t_thresh >= threshold && test_pass) {
-			cout << "circle: " << t_thresh << " (" << x << ", " << y << ") " << r << endl;
-			vector<int> temp;
-			temp.push_back(x);
-			temp.push_back(y);
-			temp.push_back(r);
-			circles.push_back(temp);
-		}
-	}
-	cout << "circles: " << circles.size() << endl;
-
- 	cvtColor( input, input, CV_GRAY2BGR );
-	// input = input.t();
-	for(int i = 0; i < circles.size(); i++) {
-		vector<int> c = circles[i];
-		Point center = Point(c[1], c[0]);
-		circle(input, center, 1, Scalar(0, 255, 0), 3, 8, 0);
-		int radius = c[2];
-		circle(input, center, radius, Scalar(0, 0, 255), 2, 8, 0);
-	}
-
-	// output = input.clone();
-	// imwrite("hough_space.jpg", output);
-	// write detected circles image
-	stringstream ss;
-	ss << (int) circles.size();
-	imwrite("detected_circles_"+ss.str()+".jpg", input);
-}
-
-vector<vector<int> > h_tran(Mat &input, int r_min, int r_max, double threshold, Mat &direction) {
+vector<vector<int> > h_transform(Mat &input, int r_min, int r_max, double threshold, Mat &direction) {
 
 	int ***hough_space = malloc3dArray(input.rows, input.cols, r_max);
     for (int i = 0; i < input.rows; i++) {
@@ -439,7 +323,11 @@ vector<vector<int> > h_tran(Mat &input, int r_min, int r_max, double threshold, 
     }
 
 	cout << "circles: " << circles.size() << endl;
- 	cvtColor( input, input, CV_GRAY2BGR );
+
+	return circles;
+}
+
+void draw_circles(Mat &input, vector<vector<int> > circles) {
 
 	for(int i = 0; i < circles.size(); i++) {
 		vector<int> c = circles[i];
@@ -454,5 +342,3 @@ vector<vector<int> > h_tran(Mat &input, int r_min, int r_max, double threshold, 
 	imwrite("detected_circles_"+ss.str()+".jpg", input);
 
 }
-
-
