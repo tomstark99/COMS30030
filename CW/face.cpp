@@ -28,8 +28,28 @@ CascadeClassifier cascade;
 /** @function main */
 int main( int argc, const char** argv )
 {
-       // 1. Read Input Image
-	Mat frame = imread(argv[1], CV_LOAD_IMAGE_COLOR);
+
+
+	// for(int i = 0; i <= 15; i++) {
+	// 	stringstream ss;
+	// 	ss << (int) i;
+
+	// 	Mat frame = imread("dart"+ss.str()+".jpg", CV_LOAD_IMAGE_COLOR);
+
+	// 	// 2. Load the Strong Classifier in a structure called `Cascade'
+
+	// 	// 3. Detect Faces and Display Result
+	// 	detectAndDisplay( frame );
+
+	// 	// 4. Save Result Image
+	// 	imwrite( "detected"+ss.str()+".jpg", frame );
+	// }
+
+    // 1. Read Input Image
+
+	string image_n = argv[1];
+
+	Mat frame = imread("source_images/dart"+image_n+".jpg", CV_LOAD_IMAGE_COLOR);
 
 	// 2. Load the Strong Classifier in a structure called `Cascade'
 	if( !cascade.load( cascade_name ) ){ printf("--(!)Error loading\n"); return -1; };
@@ -38,7 +58,7 @@ int main( int argc, const char** argv )
 	detectAndDisplay( frame );
 
 	// 4. Save Result Image
-	imwrite( "detected.jpg", frame );
+	imwrite( "detected_faces/detected"+image_n+".jpg", frame );
 
 	return 0;
 }
