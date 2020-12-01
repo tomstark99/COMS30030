@@ -32,7 +32,7 @@ float get_f1_score(float t_p, float f_p, float f_n);
 
 void detectAndDisplay( Mat frame, vector<Rect> truths, string num, vector<vector<int>> circles );
 void sobel(Mat &input, Mat &output_x, Mat &output_y, Mat &output_mag, Mat &output_dir);
-void write_sobel(Mat x, Mat y, Mat m, Mat d, string num);
+void write_sobel(Mat x, Mat y, string num);
 void threshold(Mat &input, int t, string num, string ver);
 void gaussian(Mat &input, int size);
 void filter_non_max(Mat &input_mag, Mat &input_dir);
@@ -40,6 +40,7 @@ void lh_transform(Mat &input, Mat &direction, string num);
 void draw_circles(Mat &input, vector<vector<int> > circles, string num);
 void draw(Mat frame, vector<Rect> truths, vector<Rect> darts, vector<Rect> darts_f, vector<vector<int>> circles, string num);
 void debug_out(vector<Rect> darts_filtered, vector<Rect> truths, string num);
+Mat normalize_and_save(Mat input, string num, string name);
 
 String cascade_name = "dart_cascade/cascade.xml";
 CascadeClassifier cascade;
@@ -82,21 +83,36 @@ int main( int argc, const char** argv ) {
 	imwrite("detected_darts/"+image_n+"/blurred.jpg", img_gray);
 	Mat img_x(frame.size(), CV_32FC1);
 	Mat img_y(frame.size(), CV_32FC1);
-	Mat img_magnitude(frame.size(), CV_32FC1);
-	Mat img_direction(frame.size(), CV_32FC1);
-	
+	Mat img_m(frame.size(), CV_32FC1);
+	Mat img_d(frame.size(), CV_32FC1);
 
-	sobel(img_gray, img_x, img_y, img_magnitude, img_direction); 
-	write_sobel(img_x, img_y, img_magnitude, img_direction, image_n);
-	Mat img_threshold = imread("detected_darts/"+image_n+"/magnitude.jpg", 1);
-    Mat gray_test;
-    cvtColor( img_threshold, gray_test, CV_BGR2GRAY );
+	sobel(img_gray, img_x, img_y, img_m, img_d);
+
+	// Mat r_img_x(frame.size(), CV_8UC1);
+	// Mat r_img_y(frame.size(), CV_8UC1);
+	// Mat r_img_m(frame.size(), CV_8UC1);
+	// Mat r_img_d(frame.size(), CV_8UC1);
+	// normalize(img_x,r_img_x,0,255,NORM_MINMAX, CV_8UC1);
+	// normalize(img_y,r_img_y,0,255,NORM_MINMAX, CV_8UC1);
+    // normalize(img_m,r_img_m,0,255,NORM_MINMAX, CV_8UC1);
+    // normalize(img_d,r_img_d,0,255,NORM_MINMAX, CV_8UC1);
+    // imwrite("detected_darts/"+num+"/x.jpg",r_img_x);
+    // imwrite("detected_darts/"+num+"/y.jpg",r_img_y);
+    // imwrite("detected_darts/"+num+"/magnitude.jpg",r_img_m);
+    // imwrite("detected_darts/"+num+"/direction.jpg",r_img_d);
+	write_sobel(img_x, img_y, image_n);
+	Mat image_m = normalize_and_save(img_m, image_n, "magnitude");
+	Mat image_d = normalize_and_save(img_d, image_n, "direction");
+
+	// Mat img_threshold = imread("detected_darts/"+image_n+"/magnitude.jpg", 1);
+    // Mat gray_test;
+    // cvtColor( img_threshold, gray_test, CV_BGR2GRAY );
 
 	// set threshold (between 0 and 255) for the normalised magnitude image
-	threshold(gray_test, 30, image_n, "source");
+	threshold(image_m, 50, image_n, "source");
 
-	vector<vector<int>> circles = ch_transform(gray_test, 40, min(img_threshold.rows,img_threshold.cols), 20, img_direction, image_n);
-	lh_transform(gray_test, img_direction, image_n);
+	vector<vector<int>> circles = ch_transform(image_m, 40, min(frame.rows,frame.cols)/2, 20, img_d, image_n);
+	lh_transform(image_m, img_d, image_n);
 	
 	// 3. Detect Faces and Display Result
 	detectAndDisplay( frame, read_csv(image_n), image_n, circles );
@@ -187,21 +203,24 @@ void sobel(Mat &input, Mat &output_x, Mat &output_y, Mat &output_mag, Mat &outpu
 	}
 }
 
-void write_sobel(Mat x, Mat y, Mat m, Mat d, string num) {
+void write_sobel(Mat x, Mat y, string num) {
 
 	Mat r_img_x(x.size(), CV_8UC1);
 	Mat r_img_y(x.size(), CV_8UC1);
-	Mat r_img_magnitude(x.size(), CV_8UC1, Scalar(0));
-	Mat r_img_direction(x.size(), CV_8UC1, Scalar(0));
 	normalize(x,r_img_x,0,255,NORM_MINMAX, CV_8UC1);
     normalize(y,r_img_y,0,255,NORM_MINMAX, CV_8UC1);
-    normalize(m,r_img_magnitude,0,255,NORM_MINMAX);
-    normalize(d,r_img_direction,0,255,NORM_MINMAX);
     imwrite("detected_darts/"+num+"/x.jpg",r_img_x);
     imwrite("detected_darts/"+num+"/y.jpg",r_img_y);
-    imwrite("detected_darts/"+num+"/magnitude.jpg",r_img_magnitude);
-    imwrite("detected_darts/"+num+"/direction.jpg", r_img_direction);
 
+}
+
+Mat normalize_and_save(Mat input, string num, string name) {
+	Mat n_input(input.size(), CV_8UC1, Scalar(0));
+	normalize(input, n_input, 0, 255, NORM_MINMAX, CV_8UC1);
+
+	imwrite("detected_darts/"+num+"/"+name+".jpg", n_input);
+
+	return n_input;
 }
 
 void gaussian(Mat &input, int size) {
@@ -265,7 +284,6 @@ void filter_non_max(Mat &input_mag, Mat &input_dir) {
 }
 
 void threshold(Mat &input, int t, string num, string ver) {
-
 	assert(t >= 0 && t <= 255);
 	// output.create(input.size(), input.type());
 	for(int i = 0; i < input.rows; i++) {
@@ -318,14 +336,15 @@ void lh_transform(Mat &input, Mat &direction, string num) {
         }
     }
 
-	Mat hough_norm(diag, 360, CV_8UC1, Scalar(0));
-    normalize(hough_output, hough_norm, 0, 255, NORM_MINMAX);
+	Mat img_threshold = normalize_and_save(hough_output, num, "rho_theta_space");
+	// Mat hough_norm(diag, 360, CV_8UC1, Scalar(0));
+    // normalize(hough_output, hough_norm, 0, 255, NORM_MINMAX);
 	
-    imwrite("detected_darts/"+num+"/rho_theta_space.jpg", hough_norm );
+    // imwrite("detected_darts/"+num+"/rho_theta_space.jpg", hough_norm );
 
-	Mat load_threshold = imread("detected_darts/"+num+"/rho_theta_space.jpg", 1);
-    Mat img_threshold;
-    cvtColor(load_threshold, img_threshold, CV_BGR2GRAY );
+	// Mat load_threshold = imread("detected_darts/"+num+"/rho_theta_space.jpg", 1);
+    // Mat img_threshold;
+    // cvtColor(load_threshold, img_threshold, CV_BGR2GRAY );
 
 	// set threshold (between 0 and 255) for the normalised magnitude image
 	threshold(img_threshold, 10, num, "rho_theta");
@@ -346,22 +365,23 @@ void lh_transform(Mat &input, Mat &direction, string num) {
 			}
 		}
 	}
-
-	Mat hough_norm_o(input.rows, input.cols, CV_8UC1, Scalar(0));
-    normalize(hough_output_o, hough_norm_o, 0, 255, NORM_MINMAX);
-	Mat hough_th;
+	Mat img_threshold_o = normalize_and_save(hough_output_o, num, "hough_space_lines");
+	// Mat hough_norm_o(input.rows, input.cols, CV_8UC1, Scalar(0));
+    // normalize(hough_output_o, hough_norm_o, 0, 255, NORM_MINMAX);
  
-    imwrite("detected_darts/"+num+"/hough_space_lines.jpg", hough_norm_o );
+    // imwrite("detected_darts/"+num+"/hough_space_lines.jpg", hough_norm_o );
 
-	Mat load_threshold_o = imread("detected_darts/"+num+"/hough_space_lines.jpg", 1);
-    Mat img_threshold_o;
-    cvtColor( load_threshold_o, img_threshold_o, CV_BGR2GRAY );
+	// Mat load_threshold_o = imread("detected_darts/"+num+"/hough_space_lines.jpg", 1);
+    // Mat img_threshold_o;
+    // cvtColor( load_threshold_o, img_threshold_o, CV_BGR2GRAY );
 
 	// set threshold (between 0 and 255) for the normalised magnitude image
 	threshold(img_threshold_o, 160, num, "lines");
 }
 
 vector<vector<int>> ch_transform(Mat &input, int r_min, int r_max, double threshold, Mat &direction, string num) {
+
+	assert(input.rows == direction.rows && input.cols == direction.cols);
 
 	int ***hough_space = malloc3dArray(input.rows, input.cols, r_max);
     for (int i = 0; i < input.rows; i++) {
