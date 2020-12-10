@@ -18,17 +18,30 @@
 
 #define pi 3.14159265358979323846
 
+#define threshold_magnitude 100
+#define threshold_circles 20
+#define threshold_rho_space 5
+#define threshold_lines 160
+#define threshold_pixels_in_lines 20
+
 using namespace std;
 using namespace cv;
 
 /** Function Headers */
+Mat normalize_and_save(Mat input, string num, string name);
+
 vector<Rect> read_csv(string num);
-vector<Rect> filter_darts(vector<Rect> darts, vector<vector<int>> circles, string num);
+vector<Rect> filter_darts(vector<Rect> darts, vector<vector<int>> circles, string num, int pixels);
+vector<Rect> filter_by_radius(vector<Rect> darts, float avg);
+vector<Rect> group_darts(vector<Rect> darts);
 vector<string> split( const string &line, char delimiter );
-vector<vector<int>> ch_transform(Mat &input, int r_min, int r_max, double threshold, Mat &direction, string num);
+vector<vector<int>> ch_transform(Mat &input, int r_min, int r_max, Mat &direction, string num);
+
+int pixel_count(string num);
 
 float get_iou(Rect t, Rect d);
 float get_f1_score(float t_p, float f_p, float f_n);
+float average_radius(vector<vector<int>> circles);
 
 void detectAndDisplay( Mat frame, vector<Rect> truths, string num, vector<vector<int>> circles );
 void sobel(Mat &input, Mat &output_x, Mat &output_y, Mat &output_mag, Mat &output_dir);
@@ -40,7 +53,6 @@ void lh_transform(Mat &input, Mat &direction, string num);
 void draw_circles(Mat &input, vector<vector<int> > circles, string num);
 void draw(Mat frame, vector<Rect> truths, vector<Rect> darts, vector<Rect> darts_f, vector<vector<int>> circles, string num);
 void debug_out(vector<Rect> darts_filtered, vector<Rect> truths, string num);
-Mat normalize_and_save(Mat input, string num, string name);
 
 String cascade_name = "dart_cascade/cascade.xml";
 CascadeClassifier cascade;
@@ -79,39 +91,25 @@ int main( int argc, const char** argv ) {
 
 	Mat img_gray, img_blur;
  	cvtColor( frame, img_gray, CV_BGR2GRAY );
+
 	gaussian(img_gray, 7);
 	imwrite("detected_darts/"+image_n+"/blurred.jpg", img_gray);
+
 	Mat img_x(frame.size(), CV_32FC1);
 	Mat img_y(frame.size(), CV_32FC1);
 	Mat img_m(frame.size(), CV_32FC1);
 	Mat img_d(frame.size(), CV_32FC1);
 
 	sobel(img_gray, img_x, img_y, img_m, img_d);
-
-	// Mat r_img_x(frame.size(), CV_8UC1);
-	// Mat r_img_y(frame.size(), CV_8UC1);
-	// Mat r_img_m(frame.size(), CV_8UC1);
-	// Mat r_img_d(frame.size(), CV_8UC1);
-	// normalize(img_x,r_img_x,0,255,NORM_MINMAX, CV_8UC1);
-	// normalize(img_y,r_img_y,0,255,NORM_MINMAX, CV_8UC1);
-    // normalize(img_m,r_img_m,0,255,NORM_MINMAX, CV_8UC1);
-    // normalize(img_d,r_img_d,0,255,NORM_MINMAX, CV_8UC1);
-    // imwrite("detected_darts/"+num+"/x.jpg",r_img_x);
-    // imwrite("detected_darts/"+num+"/y.jpg",r_img_y);
-    // imwrite("detected_darts/"+num+"/magnitude.jpg",r_img_m);
-    // imwrite("detected_darts/"+num+"/direction.jpg",r_img_d);
 	write_sobel(img_x, img_y, image_n);
+
 	Mat image_m = normalize_and_save(img_m, image_n, "magnitude");
 	Mat image_d = normalize_and_save(img_d, image_n, "direction");
 
-	// Mat img_threshold = imread("detected_darts/"+image_n+"/magnitude.jpg", 1);
-    // Mat gray_test;
-    // cvtColor( img_threshold, gray_test, CV_BGR2GRAY );
-
 	// set threshold (between 0 and 255) for the normalised magnitude image
-	threshold(image_m, 50, image_n, "source");
+	threshold(image_m, threshold_magnitude, image_n, "source");
 
-	vector<vector<int>> circles = ch_transform(image_m, 40, min(frame.rows,frame.cols)/2, 20, img_d, image_n);
+	vector<vector<int>> circles = ch_transform(image_m, 20, min(frame.rows,frame.cols)/2, img_d, image_n);
 	lh_transform(image_m, img_d, image_n);
 	
 	// 3. Detect Faces and Display Result
@@ -337,17 +335,7 @@ void lh_transform(Mat &input, Mat &direction, string num) {
     }
 
 	Mat img_threshold = normalize_and_save(hough_output, num, "rho_theta_space");
-	// Mat hough_norm(diag, 360, CV_8UC1, Scalar(0));
-    // normalize(hough_output, hough_norm, 0, 255, NORM_MINMAX);
-	
-    // imwrite("detected_darts/"+num+"/rho_theta_space.jpg", hough_norm );
-
-	// Mat load_threshold = imread("detected_darts/"+num+"/rho_theta_space.jpg", 1);
-    // Mat img_threshold;
-    // cvtColor(load_threshold, img_threshold, CV_BGR2GRAY );
-
-	// set threshold (between 0 and 255) for the normalised magnitude image
-	threshold(img_threshold, 10, num, "rho_theta");
+	threshold(img_threshold, threshold_rho_space, num, "rho_theta");
 
 	Mat hough_output_o(input.rows, input.cols, CV_32FC1, Scalar(0));
  
@@ -366,20 +354,10 @@ void lh_transform(Mat &input, Mat &direction, string num) {
 		}
 	}
 	Mat img_threshold_o = normalize_and_save(hough_output_o, num, "hough_space_lines");
-	// Mat hough_norm_o(input.rows, input.cols, CV_8UC1, Scalar(0));
-    // normalize(hough_output_o, hough_norm_o, 0, 255, NORM_MINMAX);
- 
-    // imwrite("detected_darts/"+num+"/hough_space_lines.jpg", hough_norm_o );
-
-	// Mat load_threshold_o = imread("detected_darts/"+num+"/hough_space_lines.jpg", 1);
-    // Mat img_threshold_o;
-    // cvtColor( load_threshold_o, img_threshold_o, CV_BGR2GRAY );
-
-	// set threshold (between 0 and 255) for the normalised magnitude image
-	threshold(img_threshold_o, 160, num, "lines");
+	threshold(img_threshold_o, threshold_lines, num, "lines");
 }
 
-vector<vector<int>> ch_transform(Mat &input, int r_min, int r_max, double threshold, Mat &direction, string num) {
+vector<vector<int>> ch_transform(Mat &input, int r_min, int r_max, Mat &direction, string num) {
 
 	assert(input.rows == direction.rows && input.cols == direction.cols);
 
@@ -424,10 +402,7 @@ vector<vector<int>> ch_transform(Mat &input, int r_min, int r_max, double thresh
         }
     }
 
-	Mat hough_norm(input.rows, input.cols, CV_8UC1);
-    normalize(hough_output, hough_norm, 0, 255, NORM_MINMAX);
- 
-    imwrite("detected_darts/"+num+"/hough_space_circles.jpg", hough_norm );
+	Mat hough_norm = normalize_and_save(hough_output, num, "hough_space_circles");
 
 	vector<vector<int> > circles;
 	for (int x = 0; x < input.rows; x++) {
@@ -435,7 +410,7 @@ vector<vector<int>> ch_transform(Mat &input, int r_min, int r_max, double thresh
 			bool test_pass = true;
 			map<int, int> t_circles;
             for (int r = r_min; r < r_max; r++) {
-				if(hough_space[x][y][r] > threshold) {
+				if(hough_space[x][y][r] > threshold_circles) {
 					t_circles[r] = hough_space[x][y][r];
 				}
             }
@@ -482,7 +457,7 @@ vector<vector<int>> ch_transform(Mat &input, int r_min, int r_max, double thresh
         }
     }
 
-	cout << "circles: " << circles.size() << endl;
+	// cout << "circles: " << circles.size() << endl;
 
 	return circles;
 }
@@ -506,6 +481,8 @@ float get_iou(Rect t, Rect d) {
 	float width = min(d.x + d.width, t.x + t.width) - max(d.x, t.x);
 	float height = min(d.y + d.height, t.y + t.height) - max(d.y, t.y);
 
+	if(width <= 0 or height <= 0) return 0;
+
 	float int_area = width * height;
 	float uni_area = (d.width * d.height) + (t.width * t.height) - int_area;
 
@@ -517,7 +494,30 @@ float get_f1_score(float t_p, float f_p, float f_n) {
 	return (t_p == 0 && f_p == 0 && f_n == 0) ? 0 : t_p/(t_p + 0.5 * (f_p+f_n));
 }
 
-vector<Rect> filter_darts(vector<Rect> darts, vector<vector<int>> circles, string num) {
+float average_radius(Mat &frame, vector<vector<int>> circles) {
+	float avg = 0;
+	for(auto c: circles) {
+		avg += c[2];
+	}
+	return (circles.size() == 0) ? min(frame.cols,frame.rows)/4 : avg/circles.size();
+}
+
+int pixel_count(string num) {
+	Mat load_lines = imread("detected_darts/"+num+"/threshold_lines.jpg", 1);
+	Mat lines;
+	cvtColor( load_lines, lines, CV_BGR2GRAY );
+	// imwrite("lines_count.jpg", lines);
+	int count = 0;
+	for(int x = 0; x < lines.cols; x++) {
+		for(int y = 0; y < lines.rows; y++) {
+			if(lines.at<uchar>(y,x) == 255) count++;
+		}
+	}
+	// cout << count << endl;
+	return count;
+}
+
+vector<Rect> filter_darts(vector<Rect> darts, vector<vector<int>> circles, string num, int pixels) {
 	vector<Rect> darts_filtered;
 	Mat load_lines = imread("detected_darts/"+num+"/threshold_lines.jpg", 1);
 	Mat lines;
@@ -528,26 +528,90 @@ vector<Rect> filter_darts(vector<Rect> darts, vector<vector<int>> circles, strin
 		int l_in = 0;
 		for(int c = 0; c < circles.size(); c++) {
 			int c_x = circles[c][1], c_y = circles[c][0];
-			for(int x = darts[i].x; x < darts[i].x+darts[i].width; x++ ) {
-				for(int y = darts[i].y; y < darts[i].y+darts[i].height; y++) {
-					if(lines.at<uchar>(y,x) == 255) { l_in++; }
-				}
-			}
 			if(c_x > darts[i].x && c_x < darts[i].x+darts[i].width && c_y > darts[i].y && c_y < darts[i].y+darts[i].height) { c_in++; }
 		}
-		if(l_in != 0) cout << "rectangle " << darts[i] << " detected white pixels" << endl;
-		if(c_in >= 2 || l_in >= 20) {
+		for(int x = darts[i].x; x < darts[i].x+darts[i].width; x++ ) {
+			for(int y = darts[i].y; y < darts[i].y+darts[i].height; y++) {
+				if(lines.at<uchar>(y,x) == 255) { l_in++; }
+			}
+		}
+		// if(l_in != 0) cout << "rectangle " << darts[i] << " detected white pixels" << endl;
+		int circle_threshold = (circles.size() > 0) ? (circles.size() + 6 - 1) / 6 : 1;
+		int line_threshold = (pixels > 0) ? pixels / 8 : 1;
+		// cout << "lines :" << l_in << "," << line_threshold << endl;
+		// cout << "circle:" << c_in << "," << circle_threshold << endl;
+		if(c_in >= circle_threshold || l_in >= line_threshold) {
 			darts_filtered.push_back(darts[i]);
 			lines_d++;
 		}
 	}
-	cout << "lines: " << lines_d << endl;
+	// cout << "lines: " << lines_d << endl;
 	return darts_filtered;
+}
+
+vector<Rect> filter_by_radius(vector<Rect> darts, float avg) {
+	vector<Rect> filtered;
+	for(auto d: darts) {
+		if(min(d.width, d.height) < 5 * avg && min(d.width,d.height) > avg / 6) {
+			filtered.push_back(d);
+		}
+	}
+	return filtered;
+}
+
+vector<Rect> group_darts(vector<Rect> darts) {
+	if(darts.size() == 0) return darts;
+	vector<Rect> darts_grouped = { darts[0] };
+	// vector<Rect> darts_grouped;
+	darts.erase(darts.begin()+0);
+	int i = 0;
+	while(darts.size() > 0) {
+		bool intersect = false;
+		for(int j = 0; j < darts_grouped.size(); j++) {
+			Rect avg = darts_grouped[j];
+			if(get_iou(darts[0], avg) > 0 ) {
+				darts_grouped[j].width = (avg.width + darts[0].width) / 2;
+				darts_grouped[j].height = (avg.height + darts[0].height) / 2;
+				darts_grouped[j].x = (avg.x + darts[0].x) / 2;
+				darts_grouped[j].y = (avg.y + darts[0].y) / 2;
+				intersect = true;
+			} 
+		}
+		if(!intersect) darts_grouped.push_back(darts[0]);
+		darts.erase(darts.begin()+0);
+	}
+
+	// int i = 0;
+	// while(i < darts.size()) {
+	// 	Rect avg = darts[i];
+	// 	int j = 0;
+	// 	while(j < darts.size()) {
+	// 		if(get_iou(avg, darts[j]) > 0.0 && i != j) {
+	// 			avg.width = (avg.width + darts[j].width) / 2;
+	// 			avg.height = (avg.height + darts[j].height) / 2;
+	// 			avg.x = (avg.x + darts[j].x) / 2;
+	// 			avg.y = (avg.y + darts[j].y) / 2;
+	// 			darts.erase(darts.begin()+j);
+	// 		} else {
+	// 			j++;
+	// 		}
+	// 	}
+	// 	darts_grouped.push_back(avg);
+	// 	darts.erase(darts.begin()+i);
+	// 	i++;
+	// }
+
+	return darts_grouped;
 }
 
 void draw(Mat frame, vector<Rect> truths, vector<Rect> darts, vector<Rect> darts_f, vector<vector<int>> circles, string num) {
 	Mat frame2 = frame.clone();
 	// draw circles
+	// draw truths
+	for( int i = 0; i < truths.size(); i++) {
+		rectangle(frame, Point(truths[i].x, truths[i].y), Point(truths[i].x + truths[i].width, truths[i].y + truths[i].height), Scalar( 0, 0, 255 ), 2);
+		rectangle(frame2, Point(truths[i].x, truths[i].y), Point(truths[i].x + truths[i].width, truths[i].y + truths[i].height), Scalar( 0, 0, 255 ), 2);
+	}
 	for(int c = 0; c < circles.size(); c++) {
 		circle(frame, Point(circles[c][1],circles[c][0]), 1, Scalar(0, 255, 255), 3, 8, 0);
 		circle(frame2, Point(circles[c][1],circles[c][0]), 1, Scalar(0, 255, 255), 3, 8, 0);
@@ -561,41 +625,58 @@ void draw(Mat frame, vector<Rect> truths, vector<Rect> darts, vector<Rect> darts
 	for( int i = 0; i < darts_f.size(); i++ ) {
 		rectangle(frame, Point(darts_f[i].x, darts_f[i].y), Point(darts_f[i].x + darts_f[i].width, darts_f[i].y + darts_f[i].height), Scalar( 0, 255, 0 ), 2);
 	}
-	// draw truths
-	for( int i = 0; i < truths.size(); i++) {
-		rectangle(frame, Point(truths[i].x, truths[i].y), Point(truths[i].x + truths[i].width, truths[i].y + truths[i].height), Scalar( 0, 0, 255 ), 2);
-		rectangle(frame2, Point(truths[i].x, truths[i].y), Point(truths[i].x + truths[i].width, truths[i].y + truths[i].height), Scalar( 0, 0, 255 ), 2);
-	}
 	// write file
 	imwrite( "detected_darts/"+num+"/detected.jpg", frame2 );
 }
 
 void debug_out(vector<Rect> darts_filtered, vector<Rect> truths, string num) {
 	
-	float iou_threshold = 0.5;
+	float iou_threshold = 0.4;
 	int true_darts = 0;
 
 	for(int t = 0; t < truths.size(); t++) {
 		for(int d = 0; d < darts_filtered.size(); d++) {
 			if(get_iou(truths[t], darts_filtered[d]) > iou_threshold){
+				// cout << truths[t] << endl << darts_filtered[d] << endl << get_iou(truths[t], darts_filtered[d]) << endl;
 				true_darts++;
 				break;
 			}
 		}
 	}
 
-	float tpr = (truths.size() > 0) ? true_darts/truths.size() : 0;
+	// float tpr = (truths.size() > 0) ? true_darts/truths.size() : 0;
+	// float false_pos = darts_filtered.size() - true_darts;
+	// float false_neg = truths.size() - true_darts;
+	// float f1_score = get_f1_score(true_darts, false_pos, false_neg);
+
+	// cout << "image     : " << num << endl;
+	// cout << "tru darts : " << truths.size() << endl;
+	// cout << "det darts : " << darts_filtered.size() << endl;
+	// cout << "tpr       : " << tpr << endl;
+	// cout << "false pos : " << false_pos << endl;
+	// cout << "false neg : " << false_neg << endl;
+	// cout << "f1 score  : " << f1_score << endl << endl;
+	float tpr = (truths.size() > 0) ? (float)true_darts/(float)truths.size() : 0;
 	float false_pos = darts_filtered.size() - true_darts;
 	float false_neg = truths.size() - true_darts;
 	float f1_score = get_f1_score(true_darts, false_pos, false_neg);
 
-	cout << "image     : " << num << endl;
-	cout << "tru darts : " << truths.size() << endl;
-	cout << "det darts : " << darts_filtered.size() << endl;
-	cout << "tpr       : " << tpr << endl;
-	cout << "false pos : " << false_pos << endl;
-	cout << "false neg : " << false_neg << endl;
-	cout << "f1 score  : " << f1_score << endl << endl;
+	// cout << "image     : " << (float)num;
+	// cout << "tru darts : " << (float)truths.size();
+	// cout << "det darts : " << (float)faces.size();
+	// cout << "tpr       : " << (float)tpr;
+	// cout << "false pos : " << (float)false_pos;
+	// cout << "false neg : " << (float)false_neg;
+	// cout << "f1 score  : " << (float)f1_score << endl;
+	// cout << tpr << endl;
+	cout << "[" << num;
+	cout << "," << (float)truths.size();
+	cout << "," << (float)darts_filtered.size();
+	cout << "," << (float)tpr;
+	cout << "," << (float)false_pos;
+	cout << "," << (float)false_neg;
+	cout << "," << (float)f1_score;
+	cout << "," << (float)(true_darts/(true_darts+false_pos)) << "]," << endl;
 }
 
 /** @function detectAndDisplay */
@@ -611,7 +692,19 @@ void detectAndDisplay( Mat frame, vector<Rect> truths, string num, vector<vector
 	// 2. Perform Viola-Jones Object Detection 
 	cascade.detectMultiScale( frame_gray, darts, 1.1, 1, 0|CV_HAAR_SCALE_IMAGE, Size(50, 50), Size(500,500) );
 
-	vector<Rect> darts_filtered = filter_darts(darts, circles, num);
+	float avg = average_radius(frame, circles);
+
+	// cout << "avg radius " << avg << endl;
+	// cout << pixel_count(num) << endl;
+
+	vector<Rect> darts_filtered = filter_darts(darts, circles, num, pixel_count(num));
+
+	vector<Rect> darts_radius_filtered = filter_by_radius(darts_filtered, avg);
+
+	vector<Rect> darts_grouped = group_darts(darts_filtered);
+	// for(auto i: darts_grouped) {
+	// 	cout << i << endl;
+	// }
 
 	draw(frame, truths, darts, darts_filtered, circles, num);
 	

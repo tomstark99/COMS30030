@@ -85,10 +85,13 @@ float get_iou(Rect t, Rect f) {
 	float width = min(f.x + f.width, t.x + t.width) - max(f.x, t.x);
 	float height = min(f.y + f.height, t.y + t.height) - max(f.y, t.y);
 
+	if(width <= 0 or height <= 0) return 0;
+
 	float int_area = width * height;
 	float uni_area = (f.width * f.height) + (t.width * t.height) - int_area;
 
 	return int_area/uni_area;
+	// return (f & t).area() / (float)(f | t).area();
 }
 
 //https://en.wikipedia.org/wiki/F-score
@@ -120,33 +123,37 @@ void detectAndDisplay( Mat frame, vector<Rect> truths, string num ) {
 		rectangle(frame, Point(truths[i].x, truths[i].y), Point(truths[i].x + truths[i].width, truths[i].y + truths[i].height), Scalar( 0, 0, 255 ), 2);
 	}
 
-	float iou_threshold = 0.5;
+	float iou_threshold = 0.4;
 	int true_faces = 0;
 
 	for(int t = 0; t < truths.size(); t++) {
 		for(int f = 0; f < faces.size(); f++) {
 			if(get_iou(truths[t], faces[f]) > iou_threshold){
+				// cout << truths[t] << endl << faces[f] << endl << get_iou(truths[t], faces[f]) << endl;
 				true_faces++;
 				break;
 			}
 		}
 	}
 
-	float tpr = (truths.size() > 0) ? true_faces/truths.size() : 0;
-
-	cout << "image: " << num << endl;
-	cout << "true faces: " << truths.size() << endl;
-       // 3. Print number of Faces found
-	cout << "detected faces: " << faces.size() << endl << endl;
-	cout << "tpr: " << tpr << endl;
-
+	float tpr = (truths.size() > 0) ? (float)true_faces/(float)truths.size() : 0;
 	float false_pos = faces.size() - true_faces;
 	float false_neg = truths.size() - true_faces;
-
-	cout << "false positives: " << false_pos << endl;
-	cout << "false negatives: " << false_neg << endl << endl;
-
 	float f1_score = get_f1_score(true_faces, false_pos, false_neg);
 
-	cout << "f1 score: " << f1_score << endl << endl << endl;
+	// cout << "image     : " << (float)num;
+	// cout << "tru darts : " << (float)truths.size();
+	// cout << "det darts : " << (float)faces.size();
+	// cout << "tpr       : " << (float)tpr;
+	// cout << "false pos : " << (float)false_pos;
+	// cout << "false neg : " << (float)false_neg;
+	// cout << "f1 score  : " << (float)f1_score << endl;
+	// cout << tpr << endl;
+	cout << "[" << num;
+	cout << "," << (float)truths.size();
+	cout << "," << (float)faces.size();
+	cout << "," << (float)tpr;
+	cout << "," << (float)false_pos;
+	cout << "," << (float)false_neg;
+	cout << "," << (float)f1_score << "]," << endl;
 }
