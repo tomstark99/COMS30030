@@ -1,9 +1,3 @@
-/////////////////////////////////////////////////////////////////////////////
-//
-// COMS30121 - face.cpp
-//
-/////////////////////////////////////////////////////////////////////////////
-
 // header inclusion
 #include <stdio.h>
 #include "opencv2/objdetect/objdetect.hpp"
@@ -112,15 +106,13 @@ void detectAndDisplay( Mat frame, vector<Rect> truths, string num ) {
 	// 2. Perform Viola-Jones Object Detection 
 	cascade.detectMultiScale( frame_gray, faces, 1.1, 1, 0|CV_HAAR_SCALE_IMAGE, Size(50, 50), Size(500,500) );
 
-
-       // 4. Draw box around faces found
+	// 3. Draw box around faces found
+	for( int i = 0; i < truths.size(); i++) {
+		rectangle(frame, Point(truths[i].x, truths[i].y), Point(truths[i].x + truths[i].width, truths[i].y + truths[i].height), Scalar( 0, 0, 255 ), 2);
+	}
 	for( int i = 0; i < faces.size(); i++ )
 	{
 		rectangle(frame, Point(faces[i].x, faces[i].y), Point(faces[i].x + faces[i].width, faces[i].y + faces[i].height), Scalar( 0, 255, 0 ), 2);
-	}
-
-	for( int i = 0; i < truths.size(); i++) {
-		rectangle(frame, Point(truths[i].x, truths[i].y), Point(truths[i].x + truths[i].width, truths[i].y + truths[i].height), Scalar( 0, 0, 255 ), 2);
 	}
 
 	float iou_threshold = 0.4;
@@ -141,19 +133,21 @@ void detectAndDisplay( Mat frame, vector<Rect> truths, string num ) {
 	float false_neg = truths.size() - true_faces;
 	float f1_score = get_f1_score(true_faces, false_pos, false_neg);
 
-	// cout << "image     : " << (float)num;
-	// cout << "tru darts : " << (float)truths.size();
-	// cout << "det darts : " << (float)faces.size();
-	// cout << "tpr       : " << (float)tpr;
-	// cout << "false pos : " << (float)false_pos;
-	// cout << "false neg : " << (float)false_neg;
-	// cout << "f1 score  : " << (float)f1_score << endl;
+	cout << "image     : " << num << endl;
+	cout << "tru darts : " << (float)truths.size() << endl;
+	cout << "det darts : " << (float)faces.size() << endl;
+	cout << "tpr       : " << (float)tpr << endl;
+	cout << "false pos : " << (float)false_pos << endl;
+	cout << "false neg : " << (float)false_neg << endl;
+	cout << "f1 score  : " << (float)f1_score << endl << endl;
+	
 	// cout << tpr << endl;
-	cout << "[" << num;
-	cout << "," << (float)truths.size();
-	cout << "," << (float)faces.size();
-	cout << "," << (float)tpr;
-	cout << "," << (float)false_pos;
-	cout << "," << (float)false_neg;
-	cout << "," << (float)f1_score << "]," << endl;
+	// for use with PyTorch for easy averaging
+	// cout << "[" << num;
+	// cout << "," << (float)truths.size();
+	// cout << "," << (float)faces.size();
+	// cout << "," << (float)tpr;
+	// cout << "," << (float)false_pos;
+	// cout << "," << (float)false_neg;
+	// cout << "," << (float)f1_score << "]," << endl;
 }

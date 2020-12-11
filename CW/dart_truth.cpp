@@ -1,9 +1,3 @@
-/////////////////////////////////////////////////////////////////////////////
-//
-// COMS30121 - face.cpp
-//
-/////////////////////////////////////////////////////////////////////////////
-
 // header inclusion
 #include <stdio.h>
 #include "opencv2/objdetect/objdetect.hpp"
@@ -18,8 +12,8 @@
 
 #define pi 3.14159265358979323846
 
-#define threshold_magnitude 100
-#define threshold_circles 20
+#define threshold_magnitude 75
+#define threshold_circles 15
 #define threshold_rho_space 5
 #define threshold_lines 160
 #define threshold_pixels_in_lines 20
@@ -88,7 +82,8 @@ int main( int argc, const char** argv ) {
 
 	// 2. Load the Strong Classifier in a structure called `Cascade'
 	if( !cascade.load( cascade_name ) ){ printf("--(!)Error loading\n"); return -1; };
-
+	
+	// 3. Convert and blur input
 	Mat img_gray, img_blur;
  	cvtColor( frame, img_gray, CV_BGR2GRAY );
 
@@ -100,27 +95,30 @@ int main( int argc, const char** argv ) {
 	Mat img_m(frame.size(), CV_32FC1);
 	Mat img_d(frame.size(), CV_32FC1);
 
+	// 4. Perform sobel edge detector and write outputs
 	sobel(img_gray, img_x, img_y, img_m, img_d);
 	write_sobel(img_x, img_y, image_n);
 
 	Mat image_m = normalize_and_save(img_m, image_n, "magnitude");
 	Mat image_d = normalize_and_save(img_d, image_n, "direction");
 
-	// set threshold (between 0 and 255) for the normalised magnitude image
+	// 5. Threshold magnitude, set threshold (between 0 and 255) for the normalised magnitude image
 	threshold(image_m, threshold_magnitude, image_n, "source");
 
+	// 6. Perform HoughTransform
 	vector<vector<int>> circles = ch_transform(image_m, 20, min(frame.rows,frame.cols)/2, img_d, image_n);
 	lh_transform(image_m, img_d, image_n);
 	
-	// 3. Detect Faces and Display Result
+	// 7. Detect Faces and Display Result
 	detectAndDisplay( frame, read_csv(image_n), image_n, circles );
 
-	// 4. Save Result Image
+	// 8. Save Result Image
 	imwrite( "detected_darts/"+image_n+"/detected_filtered.jpg", frame );
 
 	return 0;
 }
 
+// Taken from COMS30020 Computer Graphics codebaes
 std::vector<std::string> split(const std::string &line, char delimiter) {
 	auto haystack = line;
 	std::vector<std::string> tokens;
@@ -282,6 +280,7 @@ void filter_non_max(Mat &input_mag, Mat &input_dir) {
 }
 
 void threshold(Mat &input, int t, string num, string ver) {
+
 	assert(t >= 0 && t <= 255);
 	// output.create(input.size(), input.type());
 	for(int i = 0; i < input.rows; i++) {
@@ -298,6 +297,8 @@ void threshold(Mat &input, int t, string num, string ver) {
 }
 
 void lh_transform(Mat &input, Mat &direction, string num) {
+
+	assert(input.rows == direction.rows && input.cols == direction.cols);
 
 	int diag = sqrt(pow(input.rows,2)+pow(input.cols,2));
 
@@ -506,7 +507,6 @@ int pixel_count(string num) {
 	Mat load_lines = imread("detected_darts/"+num+"/threshold_lines.jpg", 1);
 	Mat lines;
 	cvtColor( load_lines, lines, CV_BGR2GRAY );
-	// imwrite("lines_count.jpg", lines);
 	int count = 0;
 	for(int x = 0; x < lines.cols; x++) {
 		for(int y = 0; y < lines.rows; y++) {
@@ -552,7 +552,7 @@ vector<Rect> filter_darts(vector<Rect> darts, vector<vector<int>> circles, strin
 vector<Rect> filter_by_radius(vector<Rect> darts, float avg) {
 	vector<Rect> filtered;
 	for(auto d: darts) {
-		if(min(d.width, d.height) < 5 * avg && min(d.width,d.height) > avg / 6) {
+		if(min(d.width, d.height) < 4 * avg && min(d.width,d.height) > avg / 2) {
 			filtered.push_back(d);
 		}
 	}
@@ -643,40 +643,29 @@ void debug_out(vector<Rect> darts_filtered, vector<Rect> truths, string num) {
 			}
 		}
 	}
-
-	// float tpr = (truths.size() > 0) ? true_darts/truths.size() : 0;
-	// float false_pos = darts_filtered.size() - true_darts;
-	// float false_neg = truths.size() - true_darts;
-	// float f1_score = get_f1_score(true_darts, false_pos, false_neg);
-
-	// cout << "image     : " << num << endl;
-	// cout << "tru darts : " << truths.size() << endl;
-	// cout << "det darts : " << darts_filtered.size() << endl;
-	// cout << "tpr       : " << tpr << endl;
-	// cout << "false pos : " << false_pos << endl;
-	// cout << "false neg : " << false_neg << endl;
-	// cout << "f1 score  : " << f1_score << endl << endl;
 	float tpr = (truths.size() > 0) ? (float)true_darts/(float)truths.size() : 0;
 	float false_pos = darts_filtered.size() - true_darts;
 	float false_neg = truths.size() - true_darts;
 	float f1_score = get_f1_score(true_darts, false_pos, false_neg);
 
-	// cout << "image     : " << (float)num;
-	// cout << "tru darts : " << (float)truths.size();
-	// cout << "det darts : " << (float)faces.size();
-	// cout << "tpr       : " << (float)tpr;
-	// cout << "false pos : " << (float)false_pos;
-	// cout << "false neg : " << (float)false_neg;
-	// cout << "f1 score  : " << (float)f1_score << endl;
+	cout << "image     : " << num << endl;
+	cout << "tru darts : " << (float)truths.size() << endl;
+	cout << "det darts : " << (float)darts_filtered.size() << endl;
+	cout << "tpr       : " << (float)tpr << endl;
+	cout << "false pos : " << (float)false_pos << endl;
+	cout << "false neg : " << (float)false_neg << endl;
+	cout << "f1 score  : " << (float)f1_score << endl << endl;
+
 	// cout << tpr << endl;
-	cout << "[" << num;
-	cout << "," << (float)truths.size();
-	cout << "," << (float)darts_filtered.size();
-	cout << "," << (float)tpr;
-	cout << "," << (float)false_pos;
-	cout << "," << (float)false_neg;
-	cout << "," << (float)f1_score;
-	cout << "," << (float)(true_darts/(true_darts+false_pos)) << "]," << endl;
+	// for use with PyTorch for easy averaging
+	// cout << "[" << num;
+	// cout << "," << (float)truths.size();
+	// cout << "," << (float)darts_filtered.size();
+	// cout << "," << (float)tpr;
+	// cout << "," << (float)false_pos;
+	// cout << "," << (float)false_neg;
+	// cout << "," << (float)f1_score << "]," << endl;
+	// cout << "," << (float)(true_darts/(true_darts+false_pos)) << "]," << endl;
 }
 
 /** @function detectAndDisplay */
@@ -697,32 +686,19 @@ void detectAndDisplay( Mat frame, vector<Rect> truths, string num, vector<vector
 	// cout << "avg radius " << avg << endl;
 	// cout << pixel_count(num) << endl;
 
+	// 3. Filter bounding boxes based on hough transform
 	vector<Rect> darts_filtered = filter_darts(darts, circles, num, pixel_count(num));
 
+	// 3.1 Filter bounding boxes by radius (experimental)
 	vector<Rect> darts_radius_filtered = filter_by_radius(darts_filtered, avg);
 
+	// 4. Group filtered bounding boxes
 	vector<Rect> darts_grouped = group_darts(darts_filtered);
-	// for(auto i: darts_grouped) {
-	// 	cout << i << endl;
-	// }
 
-	draw(frame, truths, darts, darts_filtered, circles, num);
-	
-	// ========== AVERAGE DART BOXES ======================
+	// 5. Draw boxes onto image
+	draw(frame, truths, darts, darts_grouped, circles, num);
 
-	// int avg_x = 0, avg_y = 0, avg_w = 0, avg_h = 0;
-	// for(int i = 0; i < darts_filtered.size(); i++) {
-	// 	cout << darts_filtered[i] << endl;
-	// 	avg_x += darts_filtered[i].x;
-	// 	avg_y += darts_filtered[i].y;
-	// 	avg_w += darts_filtered[i].width;
-	// 	avg_h += darts_filtered[i].height;
-	// }
-	// cout << avg_w << " x " << avg_h << " at " << avg_x << "," << avg_y << endl;
-	// Rect dart_avg(int(avg_x/darts_filtered.size()),int(avg_y/darts_filtered.size()),int(avg_w/darts_filtered.size()),int(avg_h/darts_filtered.size()));
-	// cout << dart_avg << endl;
-	// rectangle(frame, Point(dart_avg.x, dart_avg.y), Point(dart_avg.x + dart_avg.width, dart_avg.y + dart_avg.height), Scalar( 0, 255, 0 ), 2);
-
-	debug_out(darts_filtered, truths, num);
+	// 6. Display TPR / IOU / F1
+	debug_out(darts_grouped, truths, num);
 
 }

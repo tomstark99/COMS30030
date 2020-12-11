@@ -28,24 +28,7 @@ CascadeClassifier cascade;
 /** @function main */
 int main( int argc, const char** argv )
 {
-
-
-	// for(int i = 0; i <= 15; i++) {
-	// 	stringstream ss;
-	// 	ss << (int) i;
-
-	// 	Mat frame = imread("dart"+ss.str()+".jpg", CV_LOAD_IMAGE_COLOR);
-
-	// 	// 2. Load the Strong Classifier in a structure called `Cascade'
-
-	// 	// 3. Detect Faces and Display Result
-	// 	detectAndDisplay( frame );
-
-	// 	// 4. Save Result Image
-	// 	imwrite( "detected"+ss.str()+".jpg", frame );
-	// }
-
-    // 1. Read Input Image
+	// 1. Read Input Image
 
 	string image_n = argv[1];
 

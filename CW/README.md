@@ -1,5 +1,7 @@
 # COMS30030: Image Processing and Computer Vision Coursework
 
+A dartboard detector based on the Viola-Jones object detector. I use a trained classifier with Viola-Jones and then filter with Hough Space and grouping. 
+
 ## Usage
 
 The Project comes with various `.cpp` files which can be used for different detection purposes. This project has been written to work with the `c++11` compiler
