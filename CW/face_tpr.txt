@@ -1,0 +1,127 @@
+image     : 0
+tru darts : 1
+det darts : 3
+tpr       : 1
+false pos : 2
+false neg : 0
+f1 score  : 0.5
+
+image     : 1
+tru darts : 0
+det darts : 0
+tpr       : 0
+false pos : 0
+false neg : 0
+f1 score  : 0
+
+image     : 2
+tru darts : 0
+det darts : 0
+tpr       : 0
+false pos : 0
+false neg : 0
+f1 score  : 0
+
+image     : 3
+tru darts : 0
+det darts : 0
+tpr       : 0
+false pos : 0
+false neg : 0
+f1 score  : 0
+
+image     : 4
+tru darts : 1
+det darts : 1
+tpr       : 1
+false pos : 0
+false neg : 0
+f1 score  : 1
+
+image     : 5
+tru darts : 11
+det darts : 14
+tpr       : 1
+false pos : 3
+false neg : 0
+f1 score  : 0.88
+
+image     : 6
+tru darts : 1
+det darts : 4
+tpr       : 1
+false pos : 3
+false neg : 0
+f1 score  : 0.4
+
+image     : 7
+tru darts : 1
+det darts : 1
+tpr       : 1
+false pos : 0
+false neg : 0
+f1 score  : 1
+
+image     : 8
+tru darts : 1
+det darts : 2
+tpr       : 0
+false pos : 2
+false neg : 1
+f1 score  : 0
+
+image     : 9
+tru darts : 1
+det darts : 4
+tpr       : 1
+false pos : 3
+false neg : 0
+f1 score  : 0.4
+
+image     : 10
+tru darts : 0
+det darts : 4
+tpr       : 0
+false pos : 4
+false neg : 0
+f1 score  : 0
+
+image     : 11
+tru darts : 1
+det darts : 1
+tpr       : 1
+false pos : 0
+false neg : 0
+f1 score  : 1
+
+image     : 12
+tru darts : 0
+det darts : 0
+tpr       : 0
+false pos : 0
+false neg : 0
+f1 score  : 0
+
+image     : 13
+tru darts : 1
+det darts : 2
+tpr       : 1
+false pos : 1
+false neg : 0
+f1 score  : 0.666667
+
+image     : 14
+tru darts : 2
+det darts : 6
+tpr       : 1
+false pos : 4
+false neg : 0
+f1 score  : 0.5
+
+image     : 15
+tru darts : 3
+det darts : 4
+tpr       : 1
+false pos : 1
+false neg : 0
+f1 score  : 0.857143
