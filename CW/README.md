@@ -22,8 +22,8 @@ using the provided `makefile` a `.cpp` file can be given as an argument to produ
 
 If you wanted to build the `dart_truth.cpp` program, it can be compiled as follows
 
-```
-make dart_truth
+```bash
+$ make dart_truth
 ```
 
 ### Running
@@ -34,9 +34,9 @@ make dart_truth
 
 There are 16 images that can be tested, `dart0.jpg` to `dart16.jpg`. The programs are given the source folder and the prefix to the image numbering. Say you wanted to run `dart_truth.cpp` on image `dart0.jpg`, this can be compiled and run as follows
 
-```
-make dart_truth
-./a.out 0
+```bash
+$ make dart_truth
+$ ./a.out 0
 ```
 where `0` is the argument passed to the program
 
@@ -94,12 +94,12 @@ The script will first build the program with `make` before running the program w
 
 If you wanted to build and run `dart_truth.cpp` on image `dart4.jpg`
 
-```
-./run.sh dart_truth 4
+```bash
+$ ./run.sh dart_truth 4
 ```
 
 If you wanted to build and run `face_truth.cpp` on all test images
 
-```
-./run.sh face_truth all
+```bash
+$ ./run.sh face_truth all
 ```
